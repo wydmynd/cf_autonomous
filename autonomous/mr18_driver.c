@@ -64,7 +64,9 @@ TimingBudgetID
 */
 #define DistanceModeID 1 // 4 meters
 
+
 static uint16_t result_logger[18] = {0};
+static uint16_t last_good_reading[18] = {0};
 
 static uint8_t devAddr = 0x70;
 // static uint16_t result=0;
@@ -96,11 +98,11 @@ static void appTask(void *param)
 
 void appMain()
 {
-	  DEBUG_PRINT("***** I2C sensor test ***** \n");
+	  DEBUG_PRINT("***** mr18 driver ***** \n");
 
 	  I2Cx = I2C1_DEV; //i2c port 1 = deck bus
 
-		vTaskDelay(M2T(1500));
+		vTaskDelay(M2T(1000));
 
 		bool success;
 		unsigned char buffer[4] = {0};
@@ -111,17 +113,15 @@ void appMain()
 		buffer[3] = 0;
 
 		success=i2cdevWrite(I2Cx, devAddr, length,(uint8_t *)&buffer );
-	    //success=i2cdevReadReg8(I2Cx, devAddr, 0xC0, 2, (uint8_t *)&buffer); // 0xC0 is the "sensor id" register
 
 	    if(success) {
-	    	DEBUG_PRINT("set params successful\n");
+	    	DEBUG_PRINT("mr18 set params successful\n");
 	    }
 	    else {
-	    	DEBUG_PRINT("set params fail\n");
+	    	DEBUG_PRINT("mr18 set params fail\n");
 	    }
 
-		vTaskDelay(M2T(500));
-
+		vTaskDelay(M2T(100));
 
 		memset(buffer, 0, sizeof(buffer));
 		length=4;
@@ -134,43 +134,32 @@ void appMain()
 		success=i2cdevWrite(I2Cx, devAddr, length,(uint8_t *)&buffer );
 
 	    if(success) {
-	    	DEBUG_PRINT("command start measure successful\n");
+	    	DEBUG_PRINT("mr18 command start measure successful\n");
 	    }
 	    else {
-	    	DEBUG_PRINT("command start measure fail\n");
+	    	DEBUG_PRINT("mr18 command start measure fail\n");
 	    }
 
+	    uint16_t result_raw=0;
 	  while(1) {
-			vTaskDelay(M2T(50));
+			vTaskDelay(M2T(35));
 			int length=39;
 			unsigned char measurement_buffer[39] = {0};
 			i2cdevRead(I2Cx, devAddr, length,(uint8_t *)&measurement_buffer );
-//		    if(success) {
-//		    	DEBUG_PRINT("MR18-R\n");
-//		    }
-//		    else {
-//		    	DEBUG_PRINT("MR18 measure fail\n");
-//		    }
 		    uint8_t i=0;
-//		    for (i=0; i<length; i++){
-////		    	DEBUG_PRINT("reading num %i = %i , ", i, measurement_buffer[i]);
-//		    	//DEBUG_PRINT("%i , ", measurement_buffer[i]);
-//		    }
-		    //DEBUG_PRINT("\n");
-
-		    //uint16_t result_buffer[18] = {0};
 		    uint8_t j=0;
-		    //uint16_t result = (uint16_t)(measurement_buffer[3] << 8) + (uint16_t)(measurement_buffer[4]);
 		    for (i=3; i<39; i+=2){
-		    	//result_buffer[j] = (uint16_t)(measurement_buffer[i] << 8) + (uint16_t)(measurement_buffer[i+1]);
-		    	result_logger[j] = (uint16_t)(measurement_buffer[i] << 8) + (uint16_t)(measurement_buffer[i+1]);
+
+		    	result_raw = (uint16_t)(measurement_buffer[i] << 8) + (uint16_t)(measurement_buffer[i+1]);
+		    	if (result_raw==0 || result_raw==65535) {//bad reading
+		    		result_logger[j]=last_good_reading[j];
+		    	}
+		    	else { //good reading
+		    		result_logger[j]=result_raw;
+					last_good_reading[j]=result_raw;
+		    	}
 		    	j++;
 		    }
-
-//		    for (i=0; i<18; i++){
-//		    	//DEBUG_PRINT("%i , ", result_buffer[i]);
-//		    }
-		    //DEBUG_PRINT("\n");
 	  }
 }
 
