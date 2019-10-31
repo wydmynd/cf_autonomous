@@ -1,0 +1,6 @@
+cra*/*
+lps*/*
+bin/*
+cf2*.*
+
+current_platform.mk
